@@ -17,7 +17,9 @@ class _CreatePollPageState extends State<CreatePollPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.teal[100],
       appBar: AppBar(
+        backgroundColor: Colors.teal[400],
         title: Text('Create New Poll'),
       ),
       body: Padding(

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_setup/global/common/toast.dart';
 import 'package:flutter/material.dart';
 
 import 'admin_results_page.dart'; // Import AdminResultsPage
@@ -15,12 +17,18 @@ class _AdminPageState extends State<AdminPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.teal[100],
       appBar: AppBar(
+        backgroundColor: Colors.teal[400],
+        automaticallyImplyLeading: false,
         title: Text('Admin Page'),
         actions: [
           // Button to navigate to AdminResultsPage
           IconButton(
-            icon: Icon(Icons.assignment_turned_in),
+            icon: Icon(
+              Icons.assignment_turned_in,
+              color: Colors.white70,
+            ),
             onPressed: () {
               // Navigate to the AdminResultsPage
               Navigator.push(
@@ -33,7 +41,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
           // Button to navigate to CreatePollPage
           IconButton(
-            icon: Icon(Icons.add),
+            icon: Icon(Icons.add, color: Colors.white70),
             onPressed: () {
               // Navigate to the CreatePollPage
               Navigator.push(
@@ -42,6 +50,18 @@ class _AdminPageState extends State<AdminPage> {
                   builder: (context) => CreatePollPage(),
                 ),
               );
+            },
+          ),
+          // Logout Button
+          IconButton(
+            icon: Icon(
+              Icons.logout,
+              color: Colors.white70,
+            ),
+            onPressed: () async {
+              FirebaseAuth.instance.signOut();
+              Navigator.pushNamed(context, "/login");
+              showToast(message: "Successfully signed out");
             },
           ),
         ],
@@ -58,6 +78,17 @@ class _AdminPageState extends State<AdminPage> {
           }
 
           var votes = snapshot.data!.docs;
+
+          if (votes.isEmpty) {
+            // Show this when there are no active polls
+            return Center(
+              child: Text(
+                'No active polls available!',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            );
+          }
+
           return ListView.builder(
             itemCount: votes.length,
             itemBuilder: (context, index) {

@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_setup/global/common/toast.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import 'vote_history_page.dart'; // Import the VoteHistory Page
+import 'vote_history_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -43,8 +45,39 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.teal[100],
       appBar: AppBar(
+        backgroundColor: Colors.teal[400],
         title: Text('Home Page'),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.history,
+              color: Colors.white70,
+            ), // This is the icon for the button
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      VoteHistory(), // Navigate to VoteHistory page
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.logout,
+              color: Colors.white70,
+            ),
+            onPressed: () async {
+              FirebaseAuth.instance.signOut();
+              Navigator.pushNamed(context, "/login");
+              showToast(message: "Successfully signed out");
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -52,24 +85,6 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: 30),
-
-              // Button to navigate to Vote History page
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          VoteHistory(), // Navigate to VoteHistory page
-                    ),
-                  );
-                },
-                child: Text('View Vote History'),
-              ),
-
-              SizedBox(height: 20),
-
               // StreamBuilder to display voting options
               StreamBuilder(
                 stream: FirebaseFirestore.instance
@@ -84,9 +99,19 @@ class _HomePageState extends State<HomePage> {
                   }
 
                   var votes = snapshot.data!.docs;
+
+                  // Check if there are no active polls available
                   if (votes.isEmpty) {
-                    return Center(child: Text("No active polls available"));
+                    return Center(
+                      child: Text(
+                        "No active polls available",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    );
                   }
+
+                  // If there are polls but they are not released, show a message
 
                   // Use ListView to show all polls
                   return ListView.builder(
@@ -105,29 +130,86 @@ class _HomePageState extends State<HomePage> {
                         return Container(); // Return an empty container to hide it
                       }
 
+                      // Check if the results are released
+                      bool resultsReleased = voteDoc['released'];
+
                       return Card(
                         margin: EdgeInsets.all(8),
                         child: Column(
                           children: [
                             ListTile(
-                              title: Text(
-                                  'Vote for ${voteDoc['candidate1']} vs ${voteDoc['candidate2']}'),
+                              leading: FaIcon(
+                                FontAwesomeIcons
+                                    .checkToSlot, // Add the Font Awesome icon here
+                                color: Colors.blue, // Icon color
+                                size: 30, // Icon size
+                              ),
+                              trailing: FaIcon(
+                                FontAwesomeIcons
+                                    .checkToSlot, // Add the Font Awesome icon here
+                                color: Colors.blue, // Icon color
+                                size: 30, // Icon size
+                              ),
+                              title: Center(
+                                child: Text(
+                                  'Vote for ${voteDoc['candidate1']} vs ${voteDoc['candidate2']}',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20),
+                                ),
+                              ),
                             ),
-                            SizedBox(height: 10),
                             ElevatedButton(
                               onPressed: () {
                                 _submitVote(
                                     voteDoc, voteDoc['candidate1'], pollId);
                               },
-                              child: Text("Vote for ${voteDoc['candidate1']}"),
+                              style: ButtonStyle(
+                                backgroundColor: MaterialStateProperty.all(
+                                    Colors.blueAccent), // Bright color
+                                elevation: MaterialStateProperty.all(
+                                    10), // Increased elevation (shadow)
+                                shape: MaterialStateProperty.all(
+                                    RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            12))), // Rounded corners
+                                padding: MaterialStateProperty.all(
+                                    EdgeInsets.symmetric(
+                                        vertical: 15,
+                                        horizontal:
+                                            20)), // Larger padding for better size
+                              ),
+                              child: Text(
+                                "Vote for ${voteDoc['candidate1']}",
+                                style: TextStyle(color: Colors.white70),
+                              ),
                             ),
+                            SizedBox(height: 10),
                             ElevatedButton(
                               onPressed: () {
                                 _submitVote(
                                     voteDoc, voteDoc['candidate2'], pollId);
                               },
-                              child: Text("Vote for ${voteDoc['candidate2']}"),
+                              style: ButtonStyle(
+                                backgroundColor: MaterialStateProperty.all(
+                                    Colors.blueAccent), // Bright color
+                                elevation: MaterialStateProperty.all(
+                                    10), // Increased elevation (shadow)
+                                shape: MaterialStateProperty.all(
+                                    RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            12))), // Rounded corners
+                                padding: MaterialStateProperty.all(
+                                    EdgeInsets.symmetric(
+                                        vertical: 15,
+                                        horizontal:
+                                            20)), // Larger padding for better size
+                              ),
+                              child: Text("Vote for ${voteDoc['candidate2']}",
+                                  style: TextStyle(color: Colors.white70)),
                             ),
+                            SizedBox(height: 10),
+                            // After voting, show the result status
                           ],
                         ),
                       );
