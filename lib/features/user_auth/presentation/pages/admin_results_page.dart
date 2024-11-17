@@ -1,8 +1,53 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class AdminResultsPage extends StatelessWidget {
+import 'admin_page.dart'; // Import AdminPage
+import 'create_poll_page.dart'; // Import CreatePollPage
+
+class AdminResultsPage extends StatefulWidget {
   const AdminResultsPage({super.key});
+
+  @override
+  State<AdminResultsPage> createState() => _AdminResultsPageState();
+}
+
+class _AdminResultsPageState extends State<AdminResultsPage> {
+  int _selectedIndex = 1; // Default to Results page
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 0) {
+      // Navigate to AdminPage (Home)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AdminPage(),
+        ),
+      );
+    } else if (index == 1) {
+      // Results button does nothing (stay on AdminResultsPage)
+      return;
+    } else if (index == 2) {
+      // Navigate to CreatePollPage
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CreatePollPage(),
+        ),
+      );
+    } else if (index == 3) {
+      // Logout
+      FirebaseAuth.instance.signOut();
+      Navigator.pushNamed(context, "/login");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Successfully signed out")),
+      );
+    }
+  }
 
   Future<void> _clearHistory(BuildContext context) async {
     try {
@@ -31,13 +76,21 @@ class AdminResultsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.teal[100],
+      backgroundColor: Colors.blueGrey[100],
       appBar: AppBar(
-        backgroundColor: Colors.teal[400],
-        title: Text('Admin Results'),
+        flexibleSpace: Align(
+          alignment: Alignment.center, // Center the image
+          child: Image.asset(
+            'images/vote_alt.png',
+            width: double.infinity, // Make the image span the full width
+            height: double.infinity, // Make the image span the full height
+          ),
+        ),
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.blueGrey[100],
         actions: [
           IconButton(
-            icon: Icon(Icons.delete_forever, color: Colors.white70),
+            icon: Icon(Icons.delete_forever, color: Colors.black45),
             onPressed: () async {
               bool? confirmDelete = await showDialog<bool>(
                 context: context,
@@ -87,8 +140,8 @@ class AdminResultsPage extends StatelessWidget {
             itemBuilder: (context, index) {
               var voteDoc = releasedVotes[index];
               var candidates = Map<String, dynamic>.from(voteDoc['votes']);
-              var candidate1Votes = candidates[voteDoc['candidate1']];
-              var candidate2Votes = candidates[voteDoc['candidate2']];
+              var candidate1Votes = candidates[voteDoc['candidate1']] ?? 0;
+              var candidate2Votes = candidates[voteDoc['candidate2']] ?? 0;
 
               String winner;
               if (candidate1Votes > candidate2Votes) {
@@ -104,12 +157,48 @@ class AdminResultsPage extends StatelessWidget {
                 child: ListTile(
                   title: Text(
                       'Poll: ${voteDoc['candidate1']} vs ${voteDoc['candidate2']}'),
-                  subtitle: Text('Winner: $winner'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Winner: $winner'),
+                      // Display position if available
+                      if (voteDoc['position'] != null &&
+                          voteDoc['position'].isNotEmpty)
+                        Text('Position: ${voteDoc['position']}'),
+                    ],
+                  ),
                 ),
               );
             },
           );
         },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.blueGrey[500], // Set the background color
+        selectedItemColor: Colors.white, // Color for the selected icon
+        unselectedItemColor: Colors.white70, // Color for unselected icons
+        type: BottomNavigationBarType
+            .fixed, // Fix the nav bar when there are 4 items
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home', // Home button goes back to AdminPage
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_turned_in),
+            label: 'Results', // Results button stays on AdminResultsPage
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Create Poll',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.logout),
+            label: 'Logout',
+          ),
+        ],
       ),
     );
   }

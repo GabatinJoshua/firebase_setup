@@ -21,8 +21,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _isSigning = false;
 
   // Track the default color and highlighted color
-  final Color _highlightedColor = Colors.blue[600]!; // Color when pressed
-  final Color _defaultColor = Colors.blue[800]!;
+  final Color _highlightedColor = Colors.blueGrey[600]!; // Color when pressed
+  final Color _defaultColor = Colors.blueGrey[800]!;
 
   @override
   void dispose() {
@@ -34,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.teal[100],
+      backgroundColor: Colors.blueGrey[100],
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -44,17 +44,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               Image.asset(
                 'images/vote.png',
-                height: 50,
-                width: 150,
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Login',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue[800],
-                ),
+                width: 120,
               ),
               SizedBox(height: 30),
               FormContainerWidget(
@@ -73,6 +63,12 @@ class _LoginPageState extends State<LoginPage> {
               ElevatedButton(
                 onPressed: _signIn,
                 style: ButtonStyle(
+                  side: MaterialStateProperty.all(
+                    BorderSide(
+                      color: Colors.white, // Border color
+                      width: 2, // Border width
+                    ),
+                  ),
                   backgroundColor:
                       MaterialStateProperty.resolveWith<Color>((states) {
                     if (states.contains(MaterialState.pressed)) {
@@ -85,8 +81,7 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  minimumSize: MaterialStateProperty.all(
-                      Size(2000, 50)), // Minimum width: 200, height: 50
+                  minimumSize: MaterialStateProperty.all(Size(2000, 50)),
                   padding: MaterialStateProperty.all(
                       EdgeInsets.symmetric(vertical: 14)),
                 ),
@@ -97,6 +92,7 @@ class _LoginPageState extends State<LoginPage> {
                     : Text(
                         'Login',
                         style: TextStyle(
+                          fontSize: 20,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),

@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_setup/global/common/toast.dart';
 import 'package:flutter/material.dart';
 
 import 'admin_results_page.dart'; // Import AdminResultsPage
@@ -14,57 +13,57 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 0) {
+      // Stay on the AdminPage (do nothing)
+      return;
+    } else if (index == 1) {
+      // Navigate to AdminResultsPage
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AdminResultsPage(),
+        ),
+      );
+    } else if (index == 2) {
+      // Navigate to CreatePollPage
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CreatePollPage(),
+        ),
+      );
+    } else if (index == 3) {
+      // Logout
+      FirebaseAuth.instance.signOut();
+      Navigator.pushNamed(context, "/login");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Successfully signed out")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.teal[100],
+      backgroundColor: Colors.blueGrey[100],
       appBar: AppBar(
-        backgroundColor: Colors.teal[400],
+        backgroundColor: Colors.blueGrey[100],
+        flexibleSpace: Align(
+          alignment: Alignment.center, // Center the image
+          child: Image.asset(
+            'images/vote_alt.png',
+            width: double.infinity, // Make the image span the full width
+            height: double.infinity, // Make the image span the full height
+          ),
+        ),
         automaticallyImplyLeading: false,
-        title: Text('Admin Page'),
-        actions: [
-          // Button to navigate to AdminResultsPage
-          IconButton(
-            icon: Icon(
-              Icons.assignment_turned_in,
-              color: Colors.white70,
-            ),
-            onPressed: () {
-              // Navigate to the AdminResultsPage
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AdminResultsPage(),
-                ),
-              );
-            },
-          ),
-          // Button to navigate to CreatePollPage
-          IconButton(
-            icon: Icon(Icons.add, color: Colors.white70),
-            onPressed: () {
-              // Navigate to the CreatePollPage
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CreatePollPage(),
-                ),
-              );
-            },
-          ),
-          // Logout Button
-          IconButton(
-            icon: Icon(
-              Icons.logout,
-              color: Colors.white70,
-            ),
-            onPressed: () async {
-              FirebaseAuth.instance.signOut();
-              Navigator.pushNamed(context, "/login");
-              showToast(message: "Successfully signed out");
-            },
-          ),
-        ],
       ),
       body: StreamBuilder(
         // Query to only show polls that are not released
@@ -84,7 +83,7 @@ class _AdminPageState extends State<AdminPage> {
             return Center(
               child: Text(
                 'No active polls available!',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
+                style: TextStyle(fontSize: 18, color: Colors.black),
               ),
             );
           }
@@ -111,11 +110,18 @@ class _AdminPageState extends State<AdminPage> {
                 child: ListTile(
                   title: Text(
                       'Poll: ${voteDoc['candidate1']} vs ${voteDoc['candidate2']}'),
-                  subtitle: Text('Winner: $winner'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (voteDoc['position'] != null &&
+                          voteDoc['position'].isNotEmpty)
+                        Text('Position: ${voteDoc['position']}'),
+                      Text('Winner: $winner'),
+                    ],
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Display vote counts
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -126,51 +132,115 @@ class _AdminPageState extends State<AdminPage> {
                       IconButton(
                         icon: Icon(Icons.edit),
                         onPressed: () async {
-                          // Show dialog to edit the poll
+                          // Check if the poll has any votes
+
+                          if (candidate1Votes > 0 || candidate2Votes > 0) {
+                            // Show a message that the poll cannot be edited
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Poll cannot be edited after votes have been cast.')),
+                            );
+                            return; // Do not allow editing
+                          }
+
+                          // If no votes, allow editing
                           await _showEditDialog(voteDoc);
                         },
                       ),
                       IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () async {
-                          // Show confirmation dialog before deleting
-                          bool? confirmDelete =
-                              await _showDeleteDialog(voteDoc);
-                          if (confirmDelete ?? false) {
-                            await FirebaseFirestore.instance
-                                .collection('votes')
-                                .doc(voteDoc.id)
-                                .delete();
+                          bool? confirmDelete = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: Text('Delete Poll'),
+                                content: Text(
+                                    'Are you sure you want to delete this poll? This action cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(
+                                        context, false), // Cancel action
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(
+                                        context, true), // Confirm action
+                                    child: Text('Delete'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Poll deleted!')),
-                            );
+                          if (confirmDelete == true) {
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('votes')
+                                  .doc(voteDoc.id)
+                                  .delete();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text('Poll deleted successfully!')),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('Failed to delete poll: $e')),
+                              );
+                            }
                           }
                         },
                       ),
                       IconButton(
                         icon: Icon(Icons.check),
                         onPressed: () async {
-                          // Update the poll with the result and set 'released' to true
-                          await FirebaseFirestore.instance
-                              .collection('votes')
-                              .doc(voteDoc.id)
-                              .update({
-                            'released': true,
-                            'winner': winner,
-                          });
-
-                          // Optionally navigate to AdminResultsPage after releasing results
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AdminResultsPage(),
-                            ),
+                          bool? confirmRelease = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: Text('Release Results'),
+                                content: Text(
+                                    'Are you sure you want to release the results for this poll?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(
+                                        context, false), // Cancel action
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(
+                                        context, true), // Confirm action
+                                    child: Text('Release'),
+                                  ),
+                                ],
+                              );
+                            },
                           );
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Results released!')),
-                          );
+                          if (confirmRelease == true) {
+                            await FirebaseFirestore.instance
+                                .collection('votes')
+                                .doc(voteDoc.id)
+                                .update({
+                              'released': true,
+                              'winner': winner,
+                            });
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AdminResultsPage(),
+                              ),
+                            );
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Results released!')),
+                            );
+                          }
                         },
                       ),
                     ],
@@ -181,15 +251,44 @@ class _AdminPageState extends State<AdminPage> {
           );
         },
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.blueGrey[500], // Set the background color
+        selectedItemColor: Colors.white, // Color for the selected icon
+        unselectedItemColor: Colors.white70, // Color for unselected icons
+        type: BottomNavigationBarType
+            .fixed, // Fix the nav bar when there are 4 items
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home', // Home button will just stay at the AdminPage
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_turned_in),
+            label: 'Results',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Create Poll',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.logout),
+            label: 'Logout',
+          ),
+        ],
+      ),
     );
   }
 
-  // Show edit dialog to modify the poll
   Future<void> _showEditDialog(DocumentSnapshot voteDoc) async {
+    // Create controllers for the text fields
+    TextEditingController positionController =
+        TextEditingController(text: voteDoc['position']); // For position
     TextEditingController candidate1Controller =
-        TextEditingController(text: voteDoc['candidate1']);
+        TextEditingController(text: voteDoc['candidate1']); // For Candidate 1
     TextEditingController candidate2Controller =
-        TextEditingController(text: voteDoc['candidate2']);
+        TextEditingController(text: voteDoc['candidate2']); // For Candidate 2
 
     await showDialog(
       context: context,
@@ -199,6 +298,10 @@ class _AdminPageState extends State<AdminPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              TextField(
+                controller: positionController, // Use the position controller
+                decoration: InputDecoration(labelText: 'Position'),
+              ),
               TextField(
                 controller: candidate1Controller,
                 decoration: InputDecoration(labelText: 'Candidate 1'),
@@ -212,24 +315,25 @@ class _AdminPageState extends State<AdminPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(context); // Close the dialog
               },
               child: Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
-                // Update the poll with the new candidate names
+                // Update Firestore with the new data
                 await FirebaseFirestore.instance
                     .collection('votes')
                     .doc(voteDoc.id)
                     .update({
-                  'candidate1': candidate1Controller.text,
-                  'candidate2': candidate2Controller.text,
+                  'position': positionController.text, // Update position
+                  'candidate1': candidate1Controller.text, // Update Candidate 1
+                  'candidate2': candidate2Controller.text, // Update Candidate 2
                 });
 
-                Navigator.pop(context);
+                Navigator.pop(context); // Close the dialog
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Poll updated!')),
+                  SnackBar(content: Text('Poll updated!')), // Show confirmation
                 );
               },
               child: Text('Save'),
@@ -240,7 +344,6 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  // Show confirmation dialog before deleting a poll
   Future<bool?> _showDeleteDialog(DocumentSnapshot voteDoc) async {
     return showDialog<bool>(
       context: context,

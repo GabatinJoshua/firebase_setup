@@ -23,8 +23,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  final Color _highlightedColor = Colors.blue[600]!; // Color when pressed
-  final Color _defaultColor = Colors.blue[800]!; // Default color
+  final Color _highlightedColor = Colors.blueGrey[600]!; // Color when pressed
+  final Color _defaultColor = Colors.blueGrey[800]!; // Default color
 
   bool _isSigning = false;
 
@@ -40,7 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.teal[100],
+      backgroundColor: Colors.blueGrey[100],
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
@@ -52,7 +52,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[800],
+                      color: Colors.blueGrey[800],
                     )),
                 SizedBox(height: 30),
                 FormContainerWidget(
@@ -82,21 +82,27 @@ class _SignUpPageState extends State<SignUpPage> {
                 ElevatedButton(
                   onPressed: _signUp,
                   style: ButtonStyle(
+                    side: MaterialStateProperty.all(
+                      BorderSide(
+                        color: Colors.white, // Border color
+                        width: 2, // Border width
+                      ),
+                    ),
                     backgroundColor:
-                        WidgetStateProperty.resolveWith<Color>((states) {
-                      if (states.contains(WidgetState.pressed)) {
+                        MaterialStateProperty.resolveWith<Color>((states) {
+                      if (states.contains(MaterialState.pressed)) {
                         return _highlightedColor; // Color when pressed
                       }
                       return _defaultColor; // Default color when not pressed
                     }),
-                    shape: WidgetStateProperty.all(
+                    shape: MaterialStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    minimumSize: WidgetStateProperty.all(
+                    minimumSize: MaterialStateProperty.all(
                         Size(2000, 50)), // Minimum width: 200, height: 50
-                    padding: WidgetStateProperty.all(
+                    padding: MaterialStateProperty.all(
                         EdgeInsets.symmetric(vertical: 14)),
                   ),
                   child: _isSigning
@@ -108,6 +114,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
                         ),
                 ),
