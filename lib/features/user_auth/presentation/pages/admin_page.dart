@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'admin_results_page.dart'; // Import AdminResultsPage
-import 'create_poll_page.dart'; // Import CreatePollPage
+import 'admin_results_page.dart';
+import 'create_poll_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -14,6 +14,7 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
+  bool _hasActivePolls = false; // Track if there are active polls
 
   void _onItemTapped(int index) {
     setState(() {
@@ -21,10 +22,8 @@ class _AdminPageState extends State<AdminPage> {
     });
 
     if (index == 0) {
-      // Stay on the AdminPage (do nothing)
-      return;
+      return; // Stay on the AdminPage
     } else if (index == 1) {
-      // Navigate to AdminResultsPage
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -32,7 +31,6 @@ class _AdminPageState extends State<AdminPage> {
         ),
       );
     } else if (index == 2) {
-      // Navigate to CreatePollPage
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -40,13 +38,109 @@ class _AdminPageState extends State<AdminPage> {
         ),
       );
     } else if (index == 3) {
-      // Logout
       FirebaseAuth.instance.signOut();
       Navigator.pushNamed(context, "/login");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Successfully signed out")),
       );
     }
+  }
+
+  Future<void> _releaseAllPolls() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Release All Polls'),
+          content: Text('Are you sure you want to release all polls?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close the dialog
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close the dialog
+                try {
+                  var polls = await FirebaseFirestore.instance
+                      .collection('votes')
+                      .where('released',
+                          isEqualTo: false) // Only unreleased polls
+                      .get();
+
+                  for (var poll in polls.docs) {
+                    await FirebaseFirestore.instance
+                        .collection('votes')
+                        .doc(poll.id)
+                        .update({'released': true});
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("All polls have been released")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error releasing polls: $e")),
+                  );
+                }
+              },
+              child: Text('Release All'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteAllPolls() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Delete All Polls'),
+          content: Text(
+              'Are you sure you want to delete all polls? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close the dialog
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close the dialog
+                try {
+                  var polls = await FirebaseFirestore.instance
+                      .collection('votes')
+                      .where('released',
+                          isEqualTo: false) // Only unreleased polls
+                      .get();
+
+                  for (var poll in polls.docs) {
+                    await FirebaseFirestore.instance
+                        .collection('votes')
+                        .doc(poll.id)
+                        .delete();
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("All polls have been deleted")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error deleting polls: $e")),
+                  );
+                }
+              },
+              child: Text('Delete All'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -56,20 +150,35 @@ class _AdminPageState extends State<AdminPage> {
       appBar: AppBar(
         backgroundColor: Colors.blueGrey[100],
         flexibleSpace: Align(
-          alignment: Alignment.center, // Center the image
+          alignment: Alignment.center,
           child: Image.asset(
             'images/vote_alt.png',
-            width: double.infinity, // Make the image span the full width
-            height: double.infinity, // Make the image span the full height
+            width: double.infinity,
+            height: double.infinity,
           ),
         ),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.check_box),
+            onPressed: _hasActivePolls
+                ? _releaseAllPolls
+                : null, // Disable when no active polls
+            tooltip: 'Release All Polls',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_forever),
+            onPressed: _hasActivePolls
+                ? _deleteAllPolls
+                : null, // Disable when no active polls
+            tooltip: 'Delete All Polls',
+          ),
+        ],
       ),
       body: StreamBuilder(
-        // Query to only show polls that are not released
         stream: FirebaseFirestore.instance
             .collection('votes')
-            .where('released', isEqualTo: false) // Exclude released polls
+            .where('released', isEqualTo: false)
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -78,8 +187,14 @@ class _AdminPageState extends State<AdminPage> {
 
           var votes = snapshot.data!.docs;
 
+          // Update the state of _hasActivePolls based on active polls
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _hasActivePolls = votes.isNotEmpty;
+            });
+          });
+
           if (votes.isEmpty) {
-            // Show this when there are no active polls
             return Center(
               child: Text(
                 'No active polls available!',
@@ -97,13 +212,20 @@ class _AdminPageState extends State<AdminPage> {
               var candidate2Votes = candidates[voteDoc['candidate2']] ?? 0;
 
               String winner;
-              if (candidate1Votes > candidate2Votes) {
+              if (candidate1Votes == 0 && candidate2Votes == 1 ||
+                  candidate1Votes == 1 && candidate2Votes == 0) {
+                winner = 'Not Enough Data';
+              } else if (candidate1Votes > candidate2Votes) {
                 winner = voteDoc['candidate1'];
               } else if (candidate2Votes > candidate1Votes) {
                 winner = voteDoc['candidate2'];
+              } else if (candidate1Votes == 0 && candidate2Votes == 0) {
+                winner = 'No votes yet';
               } else {
                 winner = 'Draw';
               }
+
+              bool canEdit = candidate1Votes == 0 && candidate2Votes == 0;
 
               return Card(
                 margin: EdgeInsets.all(8),
@@ -125,54 +247,40 @@ class _AdminPageState extends State<AdminPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('Votes: $candidate1Votes'),
-                          Text('Votes: $candidate2Votes'),
+                          Text('${voteDoc['candidate1']}: $candidate1Votes'),
+                          Text('${voteDoc['candidate2']}: $candidate2Votes'),
                         ],
                       ),
                       IconButton(
                         icon: Icon(Icons.edit),
-                        onPressed: () async {
-                          // Check if the poll has any votes
-
-                          if (candidate1Votes > 0 || candidate2Votes > 0) {
-                            // Show a message that the poll cannot be edited
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Poll cannot be edited after votes have been cast.')),
-                            );
-                            return; // Do not allow editing
-                          }
-
-                          // If no votes, allow editing
-                          await _showEditDialog(voteDoc);
-                        },
+                        onPressed: canEdit
+                            ? () async {
+                                await _showEditDialog(voteDoc);
+                              }
+                            : null, // Disable edit button if votes are cast
                       ),
                       IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () async {
                           bool? confirmDelete = await showDialog<bool>(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                title: Text('Delete Poll'),
-                                content: Text(
-                                    'Are you sure you want to delete this poll? This action cannot be undone.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(
-                                        context, false), // Cancel action
-                                    child: Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(
-                                        context, true), // Confirm action
-                                    child: Text('Delete'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: Text('Delete Poll'),
+                                  content: Text(
+                                      'Are you sure you want to delete this poll? This action cannot be undone.'),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: Text('Cancel')),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: Text('Delete')),
+                                  ],
+                                );
+                              });
 
                           if (confirmDelete == true) {
                             try {
@@ -182,15 +290,14 @@ class _AdminPageState extends State<AdminPage> {
                                   .delete();
 
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content:
-                                        Text('Poll deleted successfully!')),
-                              );
+                                  SnackBar(
+                                      content:
+                                          Text('Poll deleted successfully!')));
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text('Failed to delete poll: $e')),
-                              );
+                                  SnackBar(
+                                      content:
+                                          Text('Failed to delete poll: $e')));
                             }
                           }
                         },
@@ -199,47 +306,33 @@ class _AdminPageState extends State<AdminPage> {
                         icon: Icon(Icons.check),
                         onPressed: () async {
                           bool? confirmRelease = await showDialog<bool>(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                title: Text('Release Results'),
-                                content: Text(
-                                    'Are you sure you want to release the results for this poll?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(
-                                        context, false), // Cancel action
-                                    child: Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(
-                                        context, true), // Confirm action
-                                    child: Text('Release'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: Text('Release Results'),
+                                  content: Text(
+                                      'Are you sure you want to release the results for this poll?'),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: Text('Cancel')),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: Text('Release')),
+                                  ],
+                                );
+                              });
 
                           if (confirmRelease == true) {
                             await FirebaseFirestore.instance
                                 .collection('votes')
                                 .doc(voteDoc.id)
-                                .update({
-                              'released': true,
-                              'winner': winner,
-                            });
-
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AdminResultsPage(),
-                              ),
-                            );
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Results released!')),
-                            );
+                                .update({'released': true});
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content:
+                                    Text('Poll results have been released')));
                           }
                         },
                       ),
@@ -262,11 +355,11 @@ class _AdminPageState extends State<AdminPage> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Home', // Home button will just stay at the AdminPage
+            label: 'Home', // Home button goes back to AdminPage
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment_turned_in),
-            label: 'Results',
+            label: 'Results', // Results button stays on AdminResultsPage
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add),
@@ -284,12 +377,13 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> _showEditDialog(DocumentSnapshot voteDoc) async {
     // Create controllers for the text fields
     TextEditingController positionController =
-        TextEditingController(text: voteDoc['position']); // For position
+        TextEditingController(text: voteDoc['position']);
     TextEditingController candidate1Controller =
-        TextEditingController(text: voteDoc['candidate1']); // For Candidate 1
+        TextEditingController(text: voteDoc['candidate1']);
     TextEditingController candidate2Controller =
-        TextEditingController(text: voteDoc['candidate2']); // For Candidate 2
+        TextEditingController(text: voteDoc['candidate2']);
 
+    // Open the dialog for editing
     await showDialog(
       context: context,
       builder: (context) {
@@ -299,7 +393,7 @@ class _AdminPageState extends State<AdminPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: positionController, // Use the position controller
+                controller: positionController,
                 decoration: InputDecoration(labelText: 'Position'),
               ),
               TextField(
@@ -321,48 +415,51 @@ class _AdminPageState extends State<AdminPage> {
             ),
             TextButton(
               onPressed: () async {
-                // Update Firestore with the new data
+                // Fetch the updated vote document to check the current vote state
+                var updatedVoteDoc = await FirebaseFirestore.instance
+                    .collection('votes')
+                    .doc(voteDoc.id)
+                    .get();
+
+                // Get the current vote counts
+                var currentVotes =
+                    Map<String, dynamic>.from(updatedVoteDoc['votes']);
+                int candidate1Votes = currentVotes[voteDoc['candidate1']] ?? 0;
+                int candidate2Votes = currentVotes[voteDoc['candidate2']] ?? 0;
+
+                // Prevent updates if votes have already been cast
+                if (candidate1Votes > 0 || candidate2Votes > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          'Poll cannot be edited after votes have been cast.'),
+                    ),
+                  );
+                  Navigator.pop(context); // Close the dialog
+                  return; // Exit without saving the update
+                }
+
+                // If no votes have been cast, proceed to update the poll while retaining vote counts
                 await FirebaseFirestore.instance
                     .collection('votes')
                     .doc(voteDoc.id)
                     .update({
-                  'position': positionController.text, // Update position
-                  'candidate1': candidate1Controller.text, // Update Candidate 1
-                  'candidate2': candidate2Controller.text, // Update Candidate 2
+                  'position': positionController.text,
+                  'candidate1': candidate1Controller.text,
+                  'candidate2': candidate2Controller.text,
+                  // Keep the current vote counts intact
+                  'votes': {
+                    voteDoc['candidate1']: candidate1Votes,
+                    voteDoc['candidate2']: candidate2Votes
+                  },
                 });
 
                 Navigator.pop(context); // Close the dialog
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Poll updated!')), // Show confirmation
+                  SnackBar(content: Text('Poll updated successfully!')),
                 );
               },
               child: Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<bool?> _showDeleteDialog(DocumentSnapshot voteDoc) async {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Delete Poll'),
-          content: Text('Are you sure you want to delete this poll?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child: Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: Text('Delete'),
             ),
           ],
         );

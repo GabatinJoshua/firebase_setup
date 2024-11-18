@@ -109,7 +109,34 @@ class _VoteHistoryState extends State<VoteHistory> {
                   String candidate2 = voteDoc['candidate2'] ?? 'Unknown';
                   String position = voteDoc['position'] ?? 'No position';
 
-                  String pollName = 'Poll: $candidate1 vs $candidate2';
+                  String pollName = '$candidate1 vs $candidate2';
+
+                  // Get the vote count for each candidate
+                  var candidates =
+                      Map<String, dynamic>.from(voteDoc['votes'] ?? {});
+                  var candidate1Votes = candidates[candidate1] ?? 0;
+                  var candidate2Votes = candidates[candidate2] ?? 0;
+
+                  // Set the minimum number of votes for each candidate to be considered
+                  int minVotesForCandidate1 = 0;
+                  int minVotesForCandidate2 = 0;
+
+                  // Debug print to check the vote count
+                  print(
+                      'Candidate1: $candidate1Votes, Candidate2: $candidate2Votes');
+
+                  // Check if both candidates have enough votes
+                  if (candidate1Votes <= minVotesForCandidate1 &&
+                      candidate2Votes <= minVotesForCandidate2) {
+                    print('Not enough data for both candidates');
+                    return Card(
+                      margin: EdgeInsets.all(8),
+                      child: ListTile(
+                        title: Text(pollName),
+                        subtitle: Text('Not enough data'),
+                      ),
+                    );
+                  }
 
                   return Card(
                     margin: EdgeInsets.all(8),
@@ -129,9 +156,22 @@ class _VoteHistoryState extends State<VoteHistory> {
                                   fontStyle: FontStyle.italic),
                             ),
                           if (isReleased)
-                            Text(
-                              'Winner: ${_getWinner(voteDoc)}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Winner: ${_getWinner(voteDoc)}',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '$candidate1: $candidate1Votes votes',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '$candidate2: $candidate2Votes votes',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
                             ),
                         ],
                       ),
@@ -165,21 +205,33 @@ class _VoteHistoryState extends State<VoteHistory> {
   }
 
   // Helper function to get the winner
+  // Helper function to get the winner
   String _getWinner(DocumentSnapshot voteDoc) {
     var candidates = Map<String, dynamic>.from(voteDoc['votes'] ?? {});
     var candidate1Votes = candidates[voteDoc['candidate1']] ?? 0;
     var candidate2Votes = candidates[voteDoc['candidate2']] ?? 0;
 
-    // Set the minimum number of votes for each candidate to be considered
-    int minVotesForCandidate1 = 0;
-    int minVotesForCandidate2 = 0;
+    // Debug print to check the vote count
+    print(
+        'Checking winner: Candidate1: $candidate1Votes, Candidate2: $candidate2Votes');
 
-    // Check if both candidates have enough votes
-    if (candidate1Votes <= minVotesForCandidate1 &&
-        candidate2Votes <= minVotesForCandidate2) {
+    // Check if either candidate has 1 vote and the other has 0
+    if ((candidate1Votes == 1 && candidate2Votes == 0) ||
+        (candidate1Votes == 0 && candidate2Votes == 1)) {
       return 'Not enough data';
     }
 
+    // If candidate 1 has 2 or more votes and candidate 2 has 0, declare candidate 1 as the winner
+    if (candidate1Votes >= 2 && candidate2Votes == 0) {
+      return voteDoc['candidate1'];
+    }
+
+    // If candidate 2 has 2 or more votes and candidate 1 has 0, declare candidate 2 as the winner
+    if (candidate2Votes >= 2 && candidate1Votes == 0) {
+      return voteDoc['candidate2'];
+    }
+
+    // General Voting Logic for when both candidates have votes:
     if (candidate1Votes > candidate2Votes) {
       return voteDoc['candidate1'];
     } else if (candidate2Votes > candidate1Votes) {

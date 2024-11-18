@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'admin_page.dart'; // Import AdminPage
-import 'create_poll_page.dart'; // Import CreatePollPage
+import 'admin_page.dart';
+import 'create_poll_page.dart';
 
 class AdminResultsPage extends StatefulWidget {
   const AdminResultsPage({super.key});
@@ -73,6 +73,45 @@ class _AdminResultsPageState extends State<AdminResultsPage> {
     }
   }
 
+  Future<void> _deletePoll(String pollId) async {
+    try {
+      await FirebaseFirestore.instance.collection('votes').doc(pollId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Poll deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete poll: $e')),
+      );
+    }
+  }
+
+  Future<void> _showDeleteDialog(String pollId) async {
+    bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Delete Poll'),
+          content: Text('Are you sure you want to delete this poll?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      await _deletePoll(pollId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,7 +129,9 @@ class _AdminResultsPageState extends State<AdminResultsPage> {
         backgroundColor: Colors.blueGrey[100],
         actions: [
           IconButton(
-            icon: Icon(Icons.delete_forever, color: Colors.black45),
+            icon: Icon(
+              Icons.delete_forever,
+            ),
             onPressed: () async {
               bool? confirmDelete = await showDialog<bool>(
                 context: context,
@@ -166,6 +207,12 @@ class _AdminResultsPageState extends State<AdminResultsPage> {
                           voteDoc['position'].isNotEmpty)
                         Text('Position: ${voteDoc['position']}'),
                     ],
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete_forever),
+                    onPressed: () async {
+                      await _showDeleteDialog(voteDoc.id);
+                    },
                   ),
                 ),
               );

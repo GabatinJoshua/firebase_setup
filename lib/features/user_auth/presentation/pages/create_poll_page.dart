@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'admin_page.dart'; // Import AdminPage
-import 'admin_results_page.dart'; // Import AdminResultsPage
+import 'admin_page.dart';
+import 'admin_results_page.dart';
 
 class CreatePollPage extends StatefulWidget {
   const CreatePollPage({super.key});
@@ -110,7 +110,26 @@ class _CreatePollPageState extends State<CreatePollPage> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _createPoll,
+                onPressed: () {
+                  // Check if the candidates' names are the same
+                  if (_candidate1Controller.text ==
+                      _candidate2Controller.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content:
+                              Text('Candidates cannot have the same name!')),
+                    );
+                  } else if (_positionController.text.isEmpty ||
+                      _candidate1Controller.text.isEmpty ||
+                      _candidate2Controller.text.isEmpty) {
+                    // If any field is empty, show a Snackbar with an error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Please fill in all the fields')),
+                    );
+                  } else {
+                    _showConfirmationDialog(); // Proceed to show the confirmation dialog if all fields are filled
+                  }
+                },
                 child: Text('Create Poll'),
               ),
             ],
@@ -144,6 +163,33 @@ class _CreatePollPageState extends State<CreatePollPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Poll Creation'),
+          content: Text('Are you sure you want to create a new poll?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                _createPoll(); // Call the create poll function if confirmed
+              },
+              child: Text('Confirm'),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -1,5 +1,4 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_setup/features/app/spalsh_screen/loading_screen.dart';
 import 'package:firebase_setup/features/app/spalsh_screen/splash_screen.dart';
 import 'package:firebase_setup/features/user_auth/presentation/pages/admin_page.dart';
 import 'package:firebase_setup/features/user_auth/presentation/pages/home_page.dart';
@@ -27,9 +26,6 @@ class MyApp extends StatelessWidget {
         '/login': (context) => LoginPage(),
         '/signUp': (context) => SignUpPage(),
         '/home': (context) => HomePage(),
-        '/loading': (context) => LoadingScreen(
-              child: HomePage(),
-            ),
         '/admin': (context) => AdminPage(),
       },
     );
