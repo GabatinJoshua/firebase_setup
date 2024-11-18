@@ -77,10 +77,9 @@ class _HomePageState extends State<HomePage> {
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
-        child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0), // Add padding to avoid edges
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               StreamBuilder(
                 stream: FirebaseFirestore.instance
@@ -106,6 +105,8 @@ class _HomePageState extends State<HomePage> {
 
                   return ListView.builder(
                     shrinkWrap: true,
+                    physics:
+                        NeverScrollableScrollPhysics(), // Disable internal scroll
                     itemCount: votes.length,
                     itemBuilder: (context, index) {
                       var voteDoc = votes[index];
